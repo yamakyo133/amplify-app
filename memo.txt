@@ -1,0 +1,175 @@
+アカウント作成
+https://aws.amazon.com/jp/register-flow/
+
+チュートリアル
+https://qiita.com/TakehiroKATO/items/7ed9bf5b74c88a08d30f
+https://docs.amplify.aws/start/getting-started/setup/q/integration/react/
+git連携・デフォルトデプロイ（認証はやってない）
+https://www.youtube.com/watch?v=m9ZjW1md_OQ
+
+セットアップ
+・gitbash
+https://gitforwindows.org/
+・nodejs（v18）
+　・npm
+https://nodejs.org/ja/download
+
+設定
+IAMユーザ：https://us-east-1.console.aws.amazon.com/iamv2/home#/home
+ホーム：https://us-east-1.console.aws.amazon.com/amplify/home?region=us-east-1#/
+
+pkgインストール
+npm install -g @aws-amplify/cli
+amplify configure
+　ユーザ名入力
+　パスワード自動生成
+mkdir Desktop/aws
+cd Desktop/aws
+npx create-react-app react-amplified
+cd react-amplified
+npm start
+　→確認
+　　http://localhost:3000/
+
+別ウィンドウ立ち上げ
+cd Desktop/aws/react-amplified
+gitリポジトリ作成
+echo "# amplify-app" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/yamakyo133/amplify-app.git
+git push -u origin main
+git add .
+git commit -m "deploy"
+git push
+
+AWS amplify
+すべてのアプリ
+新しいアプリケーション→ウェブアプリケーションをホスト
+　Githubを選択し、続行
+　作成したリポジトリ、mainブランチを選択し次へ→そのまま次へ→保存してデプロイ
+　デプロイ確認
+　https://main.d1nhgbtdfec9kh.amplifyapp.com/
+
+AWS amplifyからアプリケーションのバックエンドを作成
+amplify init
+　→failedでてもOK
+npm install aws-amplify
+
+vim src/index.js
+　→追記
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+import { Amplify } from 'aws-amplify';
+import awsExports from './aws-exports';
+Amplify.configure(awsExports);
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+
+amplify add api
+→エラー
+touch src/aws-exports.js
+amplify update api
+amplify push
+→エラー
+amplify push --force
+amplify status
+
+vim src/App.js
+　→上書き
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+/* src/App.js */
+import React, { useEffect, useState } from 'react'
+import { Amplify, API, graphqlOperation } from 'aws-amplify'
+import { createTodo } from './graphql/mutations'
+import { listTodos } from './graphql/queries'
+
+import awsExports from "./aws-exports";
+Amplify.configure(awsExports);
+
+const initialState = { name: '', description: '' }
+
+const App = () => {
+  const [formState, setFormState] = useState(initialState)
+  const [todos, setTodos] = useState([])
+
+  useEffect(() => {
+    fetchTodos()
+  }, [])
+
+  function setInput(key, value) {
+    setFormState({ ...formState, [key]: value })
+  }
+
+  async function fetchTodos() {
+    try {
+      const todoData = await API.graphql(graphqlOperation(listTodos))
+      const todos = todoData.data.listTodos.items
+      setTodos(todos)
+    } catch (err) { console.log('error fetching todos') }
+  }
+
+  async function addTodo() {
+    try {
+      if (!formState.name || !formState.description) return
+      const todo = { ...formState }
+      setTodos([...todos, todo])
+      setFormState(initialState)
+      await API.graphql(graphqlOperation(createTodo, {input: todo}))
+    } catch (err) {
+      console.log('error creating todo:', err)
+    }
+  }
+
+  return (
+    <div style={styles.container}>
+      <h2>Amplify Todos</h2>
+      <input
+        onChange={event => setInput('name', event.target.value)}
+        style={styles.input}
+        value={formState.name}
+        placeholder="Name"
+      />
+      <input
+        onChange={event => setInput('description', event.target.value)}
+        style={styles.input}
+        value={formState.description}
+        placeholder="Description"
+      />
+      <button style={styles.button} onClick={addTodo}>Create Todo</button>
+      {
+        todos.map((todo, index) => (
+          <div key={todo.id ? todo.id : index} style={styles.todo}>
+            <p style={styles.todoName}>{todo.name}</p>
+            <p style={styles.todoDescription}>{todo.description}</p>
+          </div>
+        ))
+      }
+    </div>
+  )
+}
+
+const styles = {
+  container: { width: 400, margin: '0 auto', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 20 },
+  todo: {  marginBottom: 15 },
+  input: { border: 'none', backgroundColor: '#ddd', marginBottom: 10, padding: 8, fontSize: 18 },
+  todoName: { fontSize: 20, fontWeight: 'bold' },
+  todoDescription: { marginBottom: 0 },
+  button: { backgroundColor: 'black', color: 'white', outline: 'none', fontSize: 18, padding: '12px 0px' }
+}
+
+export default App
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+amplify codegen add
+→ローカルで確認可能に
+git add .
+git commit -m "modify 2"
+git push
+→dev環境デプロイ失敗
+vim .gitignore
+→aws-exports.jsをコメントアウト
+git add .
+git commit -m "modify 3"
+git push
+　反映確認
+　https://main.d1nhgbtdfec9kh.amplifyapp.com/
